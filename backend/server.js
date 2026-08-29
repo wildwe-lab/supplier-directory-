@@ -14,9 +14,7 @@ const pool = new Pool({
     : false
 });
 
-app.get("/api/", (req, res) => {
-  res.send("Supplier Directory Backend is running");
-});
+app.get("/api/", (req,res)=> res.send("Supplier Directory Backend is running - CI/CD deployed"));
 
 app.get("/api/db", async (req, res) => {
   try {
