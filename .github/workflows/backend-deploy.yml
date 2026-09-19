@@ -5,6 +5,7 @@ permissions:
   contents: read
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -18,6 +19,29 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      - name: Debug OIDC claims
+        shell: bash
+        run: |
+          RESPONSE=$(curl -sSf \
+            -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com")
+
+          TOKEN=$(echo "$RESPONSE" | python3 -c 'import json,sys; print(json.load(sys.stdin)["value"])')
+          export TOKEN
+
+          python3 - <<'PY'
+          import os
+          import json
+          import base64
+
+          token = os.environ["TOKEN"]
+          payload = token.split(".")[1]
+          payload += "=" * (-len(payload) % 4)
+          claims = json.loads(base64.urlsafe_b64decode(payload))
+
+          for key in ("sub", "aud", "repository", "ref", "job_workflow_ref"):
+              print(f"{key}: {claims.get(key)}")
+          PY
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
