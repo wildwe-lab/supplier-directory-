@@ -1,0 +1,51 @@
+name: Frontend Deploy
+
+permissions:
+  id-token: write
+  contents: read
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "frontend/**"
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::637423389066:role/supplier-directory-github-actions-role
+          aws-region: ap-northeast-3
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build frontend Docker image
+        run: docker build -t supplier-directory-project-frontend ./frontend
+
+      - name: Tag frontend Docker image
+        run: |
+          docker tag supplier-directory-project-frontend:latest 637423389066.dkr.ecr.ap-northeast-3.amazonaws.com/supplier-directory-project-frontend:${{ github.sha }}
+          docker tag supplier-directory-project-frontend:latest 637423389066.dkr.ecr.ap-northeast-3.amazonaws.com/supplier-directory-project-frontend:latest
+
+      - name: Push frontend Docker image to ECR
+        run: |
+          docker push 637423389066.dkr.ecr.ap-northeast-3.amazonaws.com/supplier-directory-project-frontend:${{ github.sha }}
+          docker push 637423389066.dkr.ecr.ap-northeast-3.amazonaws.com/supplier-directory-project-frontend:latest
+
+      - name: Deploy frontend to ECS
+        run: |
+          aws ecs update-service \
+            --cluster supplier-cluster \
+            --service frontend-service \
+            --force-new-deployment \
+            --region ap-northeast-3
